@@ -1,0 +1,75 @@
+---
+- name: 1. Initial System Setup and Immich (Your Existing Play)
+  hosts: homeserver
+  become: yes
+
+  tasks:
+    - name: Update and upgrade system
+      ansible.builtin.apt:
+        update_cache: yes
+        upgrade: yes
+
+    - name: Configure logind to ignore lid close
+      ansible.builtin.lineinfile:
+        path: /etc/systemd/logind.conf
+        regexp: '^#?HandleLidSwitch='
+        line: 'HandleLidSwitch=ignore'
+      notify: restart logind
+
+    - name: Configure additional logind options
+      ansible.builtin.blockinfile:
+        path: /etc/systemd/logind.conf
+        block: |
+          HandleLidSwitchDocked=ignore
+          HandleLidSwitchExternalPower=ignore
+          LidSwitchIgnoreInhibited=no
+      notify: restart logind
+
+    - name: Install Docker using convenience script
+      ansible.builtin.shell: |
+        curl -fsSL https://get.docker.com -o get-docker.sh
+        sh get-docker.sh
+      args:
+        creates: /usr/bin/docker
+
+    - name: Add user to docker group
+      ansible.builtin.user:
+        name: "{{ server_admin_user }}"
+        groups: docker
+        append: yes
+
+    - name: Create Immich folder
+      ansible.builtin.file:
+        path: "{{ immich_base_path }}"
+        state: directory
+        owner: "{{ server_admin_user }}"
+
+    - name: Download Immich docker-compose file
+      ansible.builtin.get_url:
+        url: https://github.com/immich-app/immich/releases/latest/download/docker-compose.yml
+        dest: "{{ immich_base_path }}/docker-compose.yml"
+
+    - name: Download Immich example env
+      ansible.builtin.get_url:
+        url: https://github.com/immich-app/immich/releases/latest/download/example.env
+        dest: "{{ immich_base_path }}/.env"
+
+    - name: Start Immich with Docker Compose
+      ansible.builtin.shell: |
+        docker compose up -d
+      args:
+        chdir: "{{ immich_base_path }}"
+      become: false
+
+  handlers:
+    - name: restart logind
+      ansible.builtin.service:
+        name: systemd-logind
+        state: restarted
+
+# monitoring
+- name: 2. Deploy Prometheus and Grafana Monitoring Stack
+  hosts: homeserver
+  become: yes
+  roles:
+    - monitoring

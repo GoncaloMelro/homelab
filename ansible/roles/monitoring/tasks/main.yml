@@ -1,0 +1,41 @@
+---
+- name: 1. Ensure base monitoring directory exists
+  ansible.builtin.file:
+    path: "{{ monitoring_base_path }}"
+    state: directory
+    owner: "{{ server_admin_user }}"
+    group: "{{ server_admin_user }}"
+    mode: '0755'
+
+- name: 2. Deploy Prometheus config file
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: "{{ monitoring_base_path }}/prometheus.yml"
+    owner: "{{ server_admin_user }}"
+    group: "{{ server_admin_user }}"
+    mode: '0644'
+
+# --- Grafana Persistence Fix Task (Crucial) ---
+- name: 3. Ensure Grafana persistent storage directory exists with correct permissions
+  ansible.builtin.file:
+    path: "{{ grafana_storage_path }}"
+    state: directory
+    # Grafana's default user ID in the container is 472. Setting ownership ensures it can write its DB.
+    owner: 472
+    group: 472
+    mode: '0755'
+
+- name: 4. Deploy docker-compose.yml file
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ monitoring_base_path }}/docker-compose.yml"
+    owner: "{{ server_admin_user }}"
+    group: "{{ server_admin_user }}"
+    mode: '0644'
+
+- name: 5. Start the Monitoring stack with Docker Compose
+  ansible.builtin.shell: |
+    docker compose up -d --force-recreate --remove-orphans
+  args:
+    chdir: "{{ monitoring_base_path }}"
+  become: false

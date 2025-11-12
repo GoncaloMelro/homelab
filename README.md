@@ -27,12 +27,15 @@ sudo apt install ansible sshpass -y
 
 Common command (dry run):
 ```bash
-ansible-playbook -i inventory.ini setup-server.yml --check --diff --ask-become-pass
+ansible-playbook playbooks/site.yml -i hosts.in --check -k -K
 ```
 Remove `--check` to apply changes.
 
 ## Planned work
-
+- Configure Grafana e make a dashboard for
+    - server use stats (1860 dashboard)
+    - immich
+- File manager (samba or just something more robust)
 - Configure Pi-hole (for fun and ad blocking)
 - Create a personal web server with a custom dashboard
 - Expose services securely (via a VPN)

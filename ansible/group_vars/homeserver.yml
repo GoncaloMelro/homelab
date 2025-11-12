@@ -1,0 +1,9 @@
+server_admin_user: rifootsv
+
+immich_base_path: "/home/{{ server_admin_user }}/immich"
+
+monitoring_base_path: "/home/{{ server_admin_user }}/monitoring"
+grafana_storage_path: "{{ monitoring_base_path }}/grafana-storage"
+
+grafana_admin_user: admin
+grafana_admin_password: admin
