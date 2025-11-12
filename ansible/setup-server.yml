@@ -1,0 +1,68 @@
+---
+- name: Setup Home Server (Docker + Immich)
+  hosts: homeserver
+  become: yes
+
+  tasks:
+    - name: Update and upgrade system
+      apt:
+        update_cache: yes
+        upgrade: yes
+
+    - name: Configure logind to ignore lid close
+      lineinfile:
+        path: /etc/systemd/logind.conf
+        regexp: '^#?HandleLidSwitch='
+        line: 'HandleLidSwitch=ignore'
+      notify: restart logind
+
+    - name: Configure additional logind options
+      blockinfile:
+        path: /etc/systemd/logind.conf
+        block: |
+          HandleLidSwitchDocked=ignore
+          HandleLidSwitchExternalPower=ignore
+          LidSwitchIgnoreInhibited=no
+      notify: restart logind
+
+    - name: Install Docker using convenience script
+      shell: |
+        curl -fsSL https://get.docker.com -o get-docker.sh
+        sh get-docker.sh
+      args:
+        creates: /usr/bin/docker
+
+    - name: Add user to docker group
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: yes
+
+    - name: Create Immich folder
+      file:
+        path: /home/{{ ansible_user }}/immich
+        state: directory
+
+    - name: Download Immich docker-compose file
+      get_url:
+        url: https://github.com/immich-app/immich/releases/latest/download/docker-compose.yml
+        dest: /home/{{ ansible_user }}/immich/docker-compose.yml
+
+    - name: Download Immich example env
+      get_url:
+        url: https://github.com/immich-app/immich/releases/latest/download/example.env
+        dest: /home/{{ ansible_user }}/immich/.env
+
+    - name: Start Immich with Docker Compose
+      shell: |
+        cd /home/{{ ansible_user }}/immich
+        docker compose up -d
+      args:
+        chdir: /home/{{ ansible_user }}/immich
+      become: false
+
+  handlers:
+    - name: restart logind
+      service:
+        name: systemd-logind
+        state: restarted
